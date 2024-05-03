@@ -43,8 +43,7 @@ router.get(
     }
   }
 );
-// Modify the existing POST endpoint to handle creating new conversations
-// Modify the existing POST endpoint to handle creating new conversations
+
 router.post("/", authMiddleware, async (req, res) => {
   try {
     const { receiver, text } = req.body;
@@ -119,6 +118,71 @@ router.get("/conversations", authMiddleware, async (req, res) => {
     res.status(200).json(conversations);
   } catch (error) {
     console.error("Error fetching conversations:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+router.put("/:messageId", authMiddleware, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { text } = req.body;
+    const userId = req.userId;
+
+    // Find the message by ID
+    const message = await Message.findById(messageId);
+
+    // Check if the message exists
+    if (!message) {
+      return res.status(404).json({ error: "Message not found" });
+    }
+
+    // Check if the user is the sender of the message
+    if (message.sender.toString() !== userId) {
+      return res
+        .status(403)
+        .json({ error: "You are not authorized to edit this message" });
+    }
+    console.log(message, text);
+    // Update the message text
+    message.text = text;
+    await message.save();
+
+    res.status(200).json({ message: "Message updated successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// Delete a message
+router.delete("/:messageId", authMiddleware, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.userId;
+
+    // Find the message by ID
+    const message = await Message.findById(messageId);
+    console.log(message);
+    // Check if the message exists
+    if (!message) {
+      return res.status(404).json({ error: "Message not found" });
+    }
+
+    // Check if the user is the sender or receiver of the message
+    if (
+      message.sender.toString() !== userId &&
+      message.receiver.toString() !== userId
+    ) {
+      return res
+        .status(403)
+        .json({ error: "You are not authorized to delete this message" });
+    }
+
+    // Delete the message
+    await message.deleteOne();
+
+    res.status(200).json({ message: "Message deleted successfully" });
+  } catch (error) {
+    console.log(error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
